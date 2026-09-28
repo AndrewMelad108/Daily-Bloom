@@ -1,0 +1,64 @@
+name: Validate and build Android + iOS
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Build profile
+        type: choice
+        options: [preview, production]
+        default: preview
+permissions:
+  contents: read
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+  build:
+    if: github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [android, ios]
+    env:
+      EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EXPO_PUBLIC_EAS_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Build signed binaries on EAS
+        env:
+          BUILD_PROFILE: ${{ inputs.profile || 'preview' }}
+          BUILD_PLATFORM: ${{ matrix.platform }}
+        run: eas build --platform "$BUILD_PLATFORM" --profile "$BUILD_PROFILE" --non-interactive --wait --json > build-result.json
+      - name: Save EAS build result and download link
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eas-result-${{ matrix.platform }}
+          path: build-result.json
+          if-no-files-found: ignore
