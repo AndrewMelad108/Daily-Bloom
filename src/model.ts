@@ -69,3 +69,26 @@ export function streak(h: Habit, entries: Entry[], today: string) {
   }
   return total;
 }
+
+export type TaskStatus = "done" | "pending" | "unscheduled";
+export function taskStatus(h: Habit, entries: Entry[], date: string): TaskStatus {
+  if (!due(h, date)) return "unscheduled";
+  return entries.some(e => e.habitId === h.id && e.date === date) ? "done" : "pending";
+}
+export function filterTasks(
+  habits: Habit[], entries: Entry[], date: string,
+  status: "all" | "done" | "pending", query = "",
+) {
+  const search = query.trim().toLocaleLowerCase();
+  return habits.filter(h => {
+    const state = taskStatus(h, entries, date);
+    return state !== "unscheduled" && (status === "all" || state === status)
+      && h.name.toLocaleLowerCase().includes(search);
+  });
+}
+
+/** Accept digits produced by Arabic and Persian keyboards as well as Latin digits. */
+export function parseMinutes(value: string) {
+  return Number(value.replace(/[٠-٩]/g, digit => String(digit.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, digit => String(digit.charCodeAt(0) - 0x06f0)));
+}

@@ -3,6 +3,8 @@ module.exports = {
     name: "خطوة • Daily Bloom",
     slug: "daily-bloom",
     version: "1.0.0",
+    icon: "./logo.png",
+    splash: { image: "./logo.png", resizeMode: "contain", backgroundColor: "#0B1017" },
     orientation: "portrait",
     userInterfaceStyle: "dark",
     scheme: "dailybloom",

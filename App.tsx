@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Alert,
   AppState,
   KeyboardAvoidingView,
@@ -56,7 +57,11 @@ import {
   metrics,
   range,
   streak,
+  taskStatus,
+  filterTasks,
+  parseMinutes,
 } from "./src/model";
+import { LanguageProvider, useLanguage, Translator } from "./src/i18n";
 const C = {
   bg: "#0B1017",
   card: "#151D28",
@@ -66,24 +71,24 @@ const C = {
   mint: "#B5F4CB",
   purple: "#C4B5FD",
 };
-const days = ["أحد", "إثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت"];
+
 const emojis = ["🌿", "📖", "💪", "💧", "🧠", "🎨", "💻", "🧘"];
 const colors = ["#B5F4CB", "#C4B5FD", "#FDCB92", "#9ACAFB"];
-const error = (e: unknown) => {
+const error = (e: unknown, t: Translator) => {
   const code = (e as { code?: string })?.code || "";
   Alert.alert(
-    "تعذّر إكمال الطلب",
+    t("تعذّر إكمال الطلب"),
     code.includes("invalid-credential") || code.includes("wrong-password")
-      ? "راجع البريد وكلمة المرور."
+      ? t("راجع البريد وكلمة المرور.")
       : code.includes("email-already-in-use")
-        ? "البريد ده مسجّل بالفعل."
+        ? t("البريد ده مسجّل بالفعل.")
         : code.includes("network")
-          ? "راجع اتصال الإنترنت وحاول تاني."
+          ? t("راجع اتصال الإنترنت وحاول تاني.")
           : code.includes("permission-denied")
-            ? "راجع نشر Firestore Rules للمشروع."
+            ? t("راجع نشر Firestore Rules للمشروع.")
             : code.includes("too-many-requests")
-              ? "محاولات كتير، جرّب بعد شوية."
-              : "حصل خطأ. راجع البيانات وإعداد Firebase وحاول تاني.",
+              ? t("محاولات كتير، جرّب بعد شوية.")
+              : t("حصل خطأ. راجع البيانات وإعداد Firebase وحاول تاني."),
   );
 };
 function Label({
@@ -93,6 +98,8 @@ function Label({
   children: React.ReactNode;
   style?: any;
 }) {
+  const { language } = useLanguage();
+  const s = makeStyles(language === "ar");
   return <Text style={[s.text, style]}>{children}</Text>;
 }
 function Button({
@@ -106,6 +113,8 @@ function Button({
   secondary?: boolean;
   disabled?: boolean;
 }) {
+  const { language } = useLanguage();
+  const s = makeStyles(language === "ar");
   return (
     <Pressable
       accessibilityRole="button"
@@ -124,6 +133,8 @@ function Button({
   );
 }
 function Field(props: React.ComponentProps<typeof TextInput>) {
+  const { language } = useLanguage();
+  const s = makeStyles(language === "ar");
   return (
     <TextInput
       placeholderTextColor={C.muted}
@@ -132,7 +143,22 @@ function Field(props: React.ComponentProps<typeof TextInput>) {
     />
   );
 }
+function LanguageSwitch() {
+  const { language, changeLanguage, t } = useLanguage();
+  const s = makeStyles(language === "ar");
+  return <View style={[s.row, { marginVertical: 12 }]}>
+    <Label>{t("اللغة")}</Label>
+    {(["ar", "en"] as const).map(value => <Pressable key={value}
+      accessibilityRole="button" accessibilityState={{ selected: language === value }}
+      onPress={() => changeLanguage(value)}
+      style={[s.chip, language === value && { backgroundColor: C.mint }]}>
+      <Label style={{ color: language === value ? C.bg : C.text }}>{value === "ar" ? "العربية" : "English"}</Label>
+    </Pressable>)}
+  </View>;
+}
 function Login() {
+  const { t, language } = useLanguage();
+  const s = makeStyles(language === "ar");
   const [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
     [register, setRegister] = useState(false),
@@ -140,8 +166,8 @@ function Login() {
   async function submit() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || password.length < 8)
       return Alert.alert(
-        "راجع البيانات",
-        "اكتب بريد صحيح وكلمة مرور ٨ أحرف على الأقل.",
+        t("راجع البيانات"),
+        t("اكتب بريد صحيح وكلمة مرور ٨ أحرف على الأقل."),
       );
     setBusy(true);
     try {
@@ -149,7 +175,7 @@ function Login() {
         register ? createUserWithEmailAndPassword : signInWithEmailAndPassword
       )(auth, email.trim(), password);
     } catch (e) {
-      error(e);
+      error(e, t);
     } finally {
       setBusy(false);
     }
@@ -160,19 +186,18 @@ function Login() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView contentContainerStyle={s.login}>
-        <View style={s.logo}>
-          <Label style={{ fontSize: 42 }}>✳</Label>
-        </View>
-        <Label style={s.brand}>خُطوة</Label>
-        <Label style={s.heroTitle}>كل يوم أحسن،{"\n"}خطوة بخطوة.</Label>
-        <Label style={s.subtitle}>مساحتك الهادية لبناء عادات تدوم.</Label>
+        <Image source={require("./logo.png")} style={s.logo} accessibilityLabel={t("خُطوة")} />
+        <LanguageSwitch />
+        <Label style={s.brand}>{t("خُطوة")}</Label>
+        <Label style={s.heroTitle}>{t("كل يوم أحسن،")}{"\n"}{t("خطوة بخطوة.")}</Label>
+        <Label style={s.subtitle}>{t("مساحتك الهادية لبناء عادات تدوم.")}</Label>
         <View style={[s.card, { marginTop: 32, width: "100%" }]}>
           <Label style={s.heading}>
-            {register ? "ابدأ رحلتك" : "أهلًا برجوعك"}
+            {register ? t("ابدأ رحلتك") : t("أهلًا برجوعك")}
           </Label>
           <Field
-            accessibilityLabel="البريد الإلكتروني"
-            placeholder="البريد الإلكتروني"
+            accessibilityLabel={t("البريد الإلكتروني")}
+            placeholder={t("البريد الإلكتروني")}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -180,45 +205,43 @@ function Login() {
             autoComplete="email"
           />
           <Field
-            accessibilityLabel="كلمة المرور"
-            placeholder="كلمة المرور · ٨ أحرف على الأقل"
+            accessibilityLabel={t("كلمة المرور")}
+            placeholder={t("كلمة المرور · ٨ أحرف على الأقل")}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             autoComplete={register ? "new-password" : "current-password"}
           />
           <Button
-            title={busy ? "لحظة…" : register ? "إنشاء حساب" : "دخول لمساحتي ←"}
+            title={busy ? t("لحظة…") : register ? t("إنشاء حساب") : t("دخول لمساحتي ←")}
             disabled={busy}
             onPress={submit}
           />
           <Button
             secondary
-            title={register ? "عندي حساب بالفعل" : "أول مرة؟ اعمل حساب"}
+            title={register ? t("عندي حساب بالفعل") : t("أول مرة؟ اعمل حساب")}
             onPress={() => setRegister(!register)}
           />
           <Pressable
             onPress={async () => {
-              if (!email.trim()) return Alert.alert("اكتب بريدك أولًا");
+              if (!email.trim()) return Alert.alert(t("اكتب بريدك أولًا"));
               try {
                 await sendPasswordResetEmail(auth, email.trim());
                 Alert.alert(
-                  "راجع بريدك",
-                  "لو البريد مسجّل هيوصلك رابط لتغيير كلمة المرور.",
+                  t("راجع بريدك"),
+                  t("لو البريد مسجّل هيوصلك رابط لتغيير كلمة المرور."),
                 );
               } catch (e) {
-                error(e);
+                error(e, t);
               }
             }}
           >
             <Label style={[s.subtitle, { marginTop: 18 }]}>
-              نسيت كلمة المرور؟
-            </Label>
+              {" "}{t("نسيت كلمة المرور؟")}{" "}</Label>
           </Pressable>
         </View>
         <Label style={[s.subtitle, { marginTop: 24 }]}>
-          بياناتك خاصة بحسابك • التحليلات اختيارية
-        </Label>
+          {" "}{t("بياناتك خاصة بحسابك • التحليلات اختيارية")}{" "}</Label>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -230,10 +253,17 @@ type Timer = {
   end: number | null;
 };
 function Home({ user }: { user: FirebaseAuthTypes.User }) {
+  const { t, language } = useLanguage();
+  const s = makeStyles(language === "ar");
+  const days = [t("أحد"), t("إثنين"), t("ثلاثاء"), t("أربعاء"), t("خميس"), t("جمعة"), t("سبت")];
   const [habits, setHabits] = useState<Habit[]>([]),
     [entries, setEntries] = useState<Entry[]>([]),
     [ready, setReady] = useState(false),
-    [failure, setFailure] = useState(false),
+    [entriesReady, setEntriesReady] = useState(false),
+    [filter, setFilter] = useState<"all" | "done" | "pending">("all"),
+    [query, setQuery] = useState(""),
+    [habitsFailed, setHabitsFailed] = useState(false),
+    [entriesFailed, setEntriesFailed] = useState(false),
     [tab, setTab] = useState("today"),
     [today, setToday] = useState(dateKey()),
     [busy, setBusy] = useState(false),
@@ -261,23 +291,26 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
           ),
         );
         setReady(true);
-        setFailure(false);
+        setHabitsFailed(false);
       },
       () => {
-        setFailure(true);
+        setHabitsFailed(true);
         setReady(true);
       },
     );
     const b = onSnapshot(
       entriesRef(user.uid),
-      (snap) =>
+      (snap) => {
         setEntries(
           snap.docs.map(
             (d: FirebaseFirestoreTypes.QueryDocumentSnapshot) =>
               d.data() as Entry,
           ),
-        ),
-      () => setFailure(true),
+        );
+        setEntriesReady(true);
+        setEntriesFailed(false);
+      },
+      () => { setEntriesFailed(true); setEntriesReady(true); },
     );
     AsyncStorage.getItem(timerKey)
       .then((v) => {
@@ -330,7 +363,7 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
     try {
       await fn();
     } catch (e) {
-      error(e);
+      error(e, t);
     } finally {
       setBusy(false);
     }
@@ -360,14 +393,14 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
     if (
       !name.trim() ||
       name.trim().length > 60 ||
-      !Number.isInteger(Number(minutes)) ||
-      Number(minutes) < 1 ||
-      Number(minutes) > 720 ||
+      !Number.isInteger(parseMinutes(minutes)) ||
+      parseMinutes(minutes) < 1 ||
+      parseMinutes(minutes) > 720 ||
       !selected.length
     )
       return Alert.alert(
-        "راجع بيانات المهمة",
-        "الاسم من ١ إلى ٦٠ حرف، المدة من ١ إلى ٧٢٠ دقيقة، واختار يوم واحد على الأقل.",
+        t("راجع بيانات المهمة"),
+        t("الاسم من ١ إلى ٦٠ حرف، المدة من ١ إلى ٧٢٠ دقيقة، واختار يوم واحد على الأقل."),
       );
     await run(async () => {
       const from = editor ? shift(today, 1) : today;
@@ -382,7 +415,7 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
         archivedDate: null,
         schedules: [
           ...(editor?.schedules.filter((x) => x.from < from) || []),
-          { from, days: [...selected].sort(), minutes: Number(minutes) },
+          { from, days: [...selected].sort(), minutes: parseMinutes(minutes) },
         ],
       };
       await saveHabit(user.uid, h);
@@ -391,7 +424,7 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
     });
   }
   function mark(h: Habit, date = today) {
-    if (!due(h, date)) return;
+    if (date > today || !due(h, date)) return;
     void run(async () => {
       await complete(user.uid, h, date, schedule(h, date)!.minutes);
       if (timer?.habitId === h.id && timer.date === date) setTimer(null);
@@ -407,14 +440,42 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
         end: Date.now() + schedule(h, today)!.minutes * 60000,
       });
     if (timer && timer.habitId !== h.id)
-      Alert.alert("تغيير المؤقّت؟", "هيتم إلغاء المؤقّت الحالي.", [
-        { text: "رجوع" },
-        { text: "ابدأ", onPress: go },
+      Alert.alert(t("تغيير المؤقّت؟"), t("هيتم إلغاء المؤقّت الحالي."), [
+        { text: t("رجوع") },
+        { text: t("ابدأ"), onPress: go },
       ]);
     else if (!timer) go();
   }
+  const formatDate = (date: string) => new Date(date + "T12:00:00").toLocaleDateString(
+    language === "ar" ? "ar-EG" : "en-US", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  const filters = (date: string) => <View style={{ gap: 8 }}>
+    <Field placeholder={t("ابحث عن مهمة")} accessibilityLabel={t("ابحث عن مهمة")} value={query} onChangeText={setQuery} />
+    <View style={s.wrap}>
+      {(["all", "pending", "done"] as const).map(value => <Pressable key={value}
+        accessibilityRole="button" accessibilityState={{ selected: filter === value }}
+        onPress={() => setFilter(value)} style={[s.chip, filter === value && { backgroundColor: C.mint }]}>
+        <Label style={{ color: filter === value ? C.bg : C.text }}>
+          {t(value === "all" ? "الكل" : value === "done" ? "مكتملة" : "غير مكتملة")} · {filterTasks(habits, entries, date, value).length}
+        </Label>
+      </Pressable>)}
+    </View>
+  </View>;
+  const templates = <View style={s.card}>
+    <Label style={s.heading}>{t("عادات جاهزة للبداية")}</Label>
+    <View style={s.wrap}>
+      {([
+        { title: "قراءة", emoji: "📖", minutes: "15" },
+        { title: "حركة ونشاط", emoji: "💪", minutes: "20" },
+        { title: "تأمل", emoji: "🧘", minutes: "5" },
+      ] as const).map(item => <Pressable key={item.title} style={s.chip} accessibilityRole="button"
+        onPress={() => { open(null); setName(t(item.title)); setEmoji(item.emoji); setMinutes(item.minutes); }}>
+        <Label>{item.emoji} {t(item.title)}</Label>
+      </Pressable>)}
+    </View>
+  </View>;
   const habitCard = (h: Habit, date: string, editable = false) => {
-    const done = entries.some((e) => e.habitId === h.id && e.date === date);
+    const status = taskStatus(h, entries, date);
+    const done = status === "done";
     const count = entries.filter((e) => e.habitId === h.id).length;
     return (
       <View
@@ -425,28 +486,30 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
           <View style={{ flex: 1 }}>
             <Label style={s.heading}>{h.name}</Label>
             <Label style={s.small}>
-              {schedule(h, date)?.minutes || h.schedules.at(-1)?.minutes} دقيقة
-              · {count} إنجاز · 🔥 {streak(h, entries, today)}
+              {schedule(h, date)?.minutes || h.schedules.at(-1)?.minutes} {" "}{t("دقيقة ·")}{" "}{count} {" "}{t("إنجاز · 🔥")}{" "}{streak(h, entries, today)}
             </Label>
           </View>
           <View style={[s.emoji, { backgroundColor: h.color + "20" }]}>
             <Label style={{ fontSize: 25 }}>{h.emoji}</Label>
           </View>
         </View>
+        <Label style={{ color: done ? C.mint : C.muted }}>
+          {done ? "✓ " + t("مكتملة") : status === "pending" ? "○ " + t("غير مكتملة") : t("غير مجدولة")}
+        </Label>
         {editable ? (
           <View style={s.row}>
             <Pressable onPress={() => open(h)}>
-              <Label style={s.link}>تعديل</Label>
+              <Label style={s.link}>{t("تعديل")}</Label>
             </Pressable>
             <Pressable
               onPress={() =>
                 Alert.alert(
-                  "أرشفة المهمة؟",
-                  "تتوقف من بكرة ويظل سجلها محفوظ.",
+                  t("أرشفة المهمة؟"),
+                  t("تتوقف من بكرة ويظل سجلها محفوظ."),
                   [
-                    { text: "رجوع" },
+                    { text: t("رجوع") },
                     {
-                      text: "أرشفة",
+                      text: t("أرشفة"),
                       onPress: () =>
                         void run(() =>
                           saveHabit(user.uid, {
@@ -459,23 +522,24 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
                 )
               }
             >
-              <Label style={s.small}>أرشفة</Label>
+              <Label style={s.small}>{t("أرشفة")}</Label>
             </Pressable>
             <Label style={s.small}>
-              {metrics([h], entries, today).rate}% انتظام
-            </Label>
+              {metrics([h], entries, today).rate}{t("% انتظام")}{" "}</Label>
           </View>
         ) : (
           <View style={s.row}>
             <Pressable
-              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel={h.name + ": " + (done ? t("إلغاء الإنجاز") : t("○ علّم كمكتملة"))}
+              disabled={busy || date > today}
               style={[s.pill, done && { backgroundColor: C.mint }]}
               onPress={() =>
                 done
-                  ? Alert.alert("إلغاء الإنجاز؟", "هيتم تحديث الإحصائيات.", [
-                      { text: "رجوع" },
+                  ? Alert.alert(t("إلغاء الإنجاز؟"), t("هيتم تحديث الإحصائيات."), [
+                      { text: t("رجوع") },
                       {
-                        text: "إلغاء الإنجاز",
+                        text: t("إلغاء الإنجاز"),
                         onPress: () =>
                           void run(() => undo(user.uid, h.id + "_" + date)),
                       },
@@ -484,12 +548,12 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
               }
             >
               <Label style={{ color: done ? C.bg : C.mint }}>
-                {done ? "✓ تم الإنجاز" : "○ علّم كمكتملة"}
+                {done ? t("✓ تم الإنجاز") : t("○ علّم كمكتملة")}
               </Label>
             </Pressable>
             {!done && date === today && (
               <Pressable disabled={!timerReady} onPress={() => start(h)}>
-                <Label style={s.link}>ابدأ التركيز ▷</Label>
+                <Label style={s.link}>{t("ابدأ التركيز ▷")}</Label>
               </Pressable>
             )}
           </View>
@@ -501,45 +565,42 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={s.content}>
         <View style={s.row}>
-          <View style={s.avatar}>
-            <Label>✳</Label>
-          </View>
+          <Image source={require("./logo.png")} style={s.avatar} accessibilityLabel={t("خُطوة")} />
           <View>
-            <Label style={s.small}>مساحتك للنمو</Label>
-            <Label style={s.brand}>خُطوة</Label>
+            <Label style={s.small}>{t("مساحتك للنمو")}</Label>
+            <Label style={s.brand}>{t("خُطوة")}</Label>
           </View>
         </View>
         <Label style={[s.heroTitle, { marginTop: 26 }]}>
           {tab === "today"
-            ? "يوم جديد، فرصة جديدة."
+            ? t("يوم جديد، فرصة جديدة.")
             : tab === "habits"
-              ? "عادات صغيرة، أثر كبير."
+              ? t("عادات صغيرة، أثر كبير.")
               : tab === "stats"
-                ? "بص على اللي حققته."
-                : "مساحتك الخاصة."}
+                ? t("بص على اللي حققته.")
+                : t("مساحتك الخاصة.")}
         </Label>
         <Label style={s.subtitle}>
-          {new Date(today + "T12:00:00").toLocaleDateString("ar-EG", {
+          {new Date(today + "T12:00:00").toLocaleDateString(language === "ar" ? "ar-EG" : "en-US", {
             weekday: "long",
             day: "numeric",
             month: "long",
           })}
         </Label>
-        {failure && (
+        {(habitsFailed || entriesFailed) && (
           <View style={s.card}>
             <Label>
-              تعذّر تحميل بعض البيانات. راجع الإنترنت وFirestore Rules.
-            </Label>
+              {" "}{t("تعذّر تحميل بعض البيانات. راجع الإنترنت وFirestore Rules.")}{" "}</Label>
           </View>
         )}
-        {!ready ? (
+        {!ready || !entriesReady ? (
           <ActivityIndicator color={C.mint} style={{ margin: 40 }} />
         ) : (
           <>
             {tab === "today" && (
               <>
                 <LinearGradient colors={["#264936", "#182C29"]} style={s.hero}>
-                  <Label style={{ color: C.mint }}>YOUR DAILY MOMENTUM</Label>
+                  <Label style={{ color: C.mint }}>{t("زخمك اليومي")}</Label>
                   <View style={s.row}>
                     <View>
                       <Label style={[s.heroTitle, { fontSize: 46 }]}>
@@ -547,8 +608,7 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
                         <Text style={{ fontSize: 22 }}>%</Text>
                       </Label>
                       <Label style={s.small}>
-                        {dayStats.done} من {dayStats.expected} مهام النهارده
-                      </Label>
+                        {dayStats.done} {" "}{t("من")}{" "}{dayStats.expected} {" "}{t("مهام النهارده")}{" "}</Label>
                     </View>
                     <View style={s.orbit}>
                       <Label style={{ fontSize: 42 }}>✳</Label>
@@ -559,57 +619,76 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
                   </View>
                   <Label style={{ marginTop: 14, color: C.mint }}>
                     {dayStats.expected && dayStats.done === dayStats.expected
-                      ? "رائع! خلصت كل مهام النهارده ✨"
-                      : "مش لازم تكون مثالي، المهم تستمر."}
+                      ? t("رائع! خلصت كل مهام النهارده ✨")
+                      : t("مش لازم تكون مثالي، المهم تستمر.")}
                   </Label>
                 </LinearGradient>
+                <View style={s.card}>
+                  <Label style={s.heading}>{t("سجل الأيام")}</Label>
+                  <View style={[s.wrap, { gap: 6 }]}>
+                    {range(today, 7).map(date => {
+                      const stats = metrics(habits, entries, date, 1);
+                      return <Pressable key={date} accessibilityRole="button"
+                        accessibilityLabel={formatDate(date) + ": " + stats.done + "/" + stats.expected + " " + t("مكتملة")}
+                        onPress={() => { setHistoryDate(date); setFilter("all"); setQuery(""); setTab("stats"); }}
+                        style={[s.chip, { minWidth: 54, alignItems: "center", borderWidth: 1, borderColor: date === today ? C.mint : C.line }]}>
+                        <Label style={s.small}>{days[new Date(date + "T12:00:00").getDay()]}</Label>
+                        <Label style={{ color: stats.expected && stats.done === stats.expected ? C.mint : C.text }}>{stats.done}/{stats.expected}</Label>
+                      </Pressable>;
+                    })}
+                  </View>
+                </View>
                 <View style={s.row}>
                   <Pressable onPress={() => open(null)}>
-                    <Label style={s.link}>＋ مهمة جديدة</Label>
+                    <Label style={s.link}>{t("＋ مهمة جديدة")}</Label>
                   </Pressable>
-                  <Label style={s.heading}>خطة النهارده</Label>
+                  <Label style={s.heading}>{t("خطة النهارده")}</Label>
                 </View>
-                {todays.map((h) => habitCard(h, today))}
+                {filters(today)}
+                <Label style={s.small}>{t("باقي اليوم")}: {dayStats.expected - dayStats.done}</Label>
+                {filterTasks(habits, entries, today, filter, query).map(h => habitCard(h, today))}
+                {!!todays.length && !filterTasks(habits, entries, today, filter, query).length && <Label style={s.subtitle}>{t("لا توجد مهام مطابقة")}</Label>}
                 {!todays.length && (
                   <View style={s.card}>
                     <Label style={{ fontSize: 40 }}>🌱</Label>
-                    <Label style={s.heading}>ابدأ بخطوة بسيطة</Label>
+                    <Label style={s.heading}>{t("ابدأ بخطوة بسيطة")}</Label>
                     <Label style={s.subtitle}>
-                      مفيش مهام مجدولة لليوم. أضف قراءة أو رياضة أو وقت لنفسك.
-                    </Label>
-                    <Button title="أضف أول مهمة" onPress={() => open(null)} />
+                      {" "}{t("مفيش مهام مجدولة لليوم. أضف قراءة أو رياضة أو وقت لنفسك.")}{" "}</Label>
+                    <Button title={t("أضف أول مهمة")} onPress={() => open(null)} />
                   </View>
                 )}
               </>
             )}
             {tab === "habits" && (
               <>
-                <Button title="＋ أضف عادة جديدة" onPress={() => open(null)} />
+                <Button title={t("＋ أضف عادة جديدة")} onPress={() => open(null)} />
+                {templates}
                 {activeHabits.map((h) => habitCard(h, today, true))}
                 {habits
                   .filter((h) => h.archivedDate && h.archivedDate <= today)
                   .map((h) => (
                     <View key={h.id} style={s.card}>
                       <Label>
-                        {h.emoji} {h.name} · مؤرشفة
-                      </Label>
+                        {h.emoji} {h.name} {" "}{t("· مؤرشفة")}{" "}</Label>
                       <Label style={s.small}>
-                        {entries.filter((e) => e.habitId === h.id).length} إنجاز
-                        محفوظ
-                      </Label>
+                        {entries.filter((e) => e.habitId === h.id).length} {" "}{t("إنجاز محفوظ")}{" "}</Label>
                     </View>
                   ))}
               </>
             )}
             {tab === "stats" && (
               <>
+                <View style={s.card}>
+                  <Label>{t("المنجز هذا الأسبوع")}: {metrics(habits, entries, today, 7).done}</Label>
+                  <Label>{t("أفضل سلسلة حالية")}: {Math.max(0, ...activeHabits.map(h => streak(h, entries, today)))} {t("يوم")}</Label>
+                </View>
                 <View style={s.statRow}>
                   {[
-                    [`${summary.rate}%`, "انتظام آخر ٣٠ يوم"],
-                    [`${entries.length}`, "إجمالي الإنجازات"],
+                    [`${summary.rate}%`, t("انتظام آخر ٣٠ يوم")],
+                    [`${entries.length}`, t("إجمالي الإنجازات")],
                     [
                       `${entries.reduce((n, e) => n + e.minutes, 0)}`,
-                      "دقائق مخططة منجزة",
+                      t("دقائق مخططة منجزة"),
                     ],
                   ].map(([v, l]) => (
                     <View key={l} style={[s.card, { flex: 1, padding: 12 }]}>
@@ -623,7 +702,7 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
                   ))}
                 </View>
                 <View style={s.card}>
-                  <Label style={s.heading}>إيقاع الأسبوع</Label>
+                  <Label style={s.heading}>{t("إيقاع الأسبوع")}</Label>
                   <View style={s.chart}>
                     {range(today, 7).map((d) => {
                       const m = metrics(habits, entries, d, 1);
@@ -653,16 +732,17 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
                   </View>
                 </View>
                 <View style={s.card}>
-                  <Label style={s.heading}>كل خطوة بتفرق</Label>
+                  <Label style={s.heading}>{t("كل خطوة بتفرق")}</Label>
                   <Label style={s.small}>
-                    آخر ٣٠ يوم · اضغط على يوم لعرض تفاصيله
-                  </Label>
+                    {" "}{t("آخر ٣٠ يوم · اضغط على يوم لعرض تفاصيله")}{" "}</Label>
                   <View style={s.heatmap}>
                     {range(today, 30).map((d) => {
                       const m = metrics(habits, entries, d, 1);
                       return (
                         <Pressable
-                          accessibilityLabel={d}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: historyDate === d }}
+                          accessibilityLabel={formatDate(d) + ": " + m.done + "/" + m.expected + " " + t("مكتملة")}
                           key={d}
                           onPress={() => setHistoryDate(d)}
                           style={[
@@ -681,25 +761,33 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
                       );
                     })}
                   </View>
-                  <Label>{historyDate}</Label>
+                  <Label>{formatDate(historyDate)}</Label>
                 </View>
-                {habits
-                  .filter((h) => due(h, historyDate))
-                  .map((h) => habitCard(h, historyDate))}
+                <View style={s.card}>
+                  <Label style={s.heading}>{t("سجل الأيام")}</Label>
+                  <View style={s.row}>
+                    <Button secondary title={t("اليوم السابق")} onPress={() => setHistoryDate(shift(historyDate, -1))} />
+                    <Button secondary title={t("اليوم التالي")} disabled={historyDate >= today} onPress={() => setHistoryDate(shift(historyDate, 1))} />
+                  </View>
+                  <Label>{formatDate(historyDate)}</Label>
+                  <Button secondary title={t("اليوم")} onPress={() => setHistoryDate(today)} />
+                  <Label>{t("مكتملة")}: {metrics(habits, entries, historyDate, 1).done} · {t("غير مكتملة")}: {metrics(habits, entries, historyDate, 1).expected - metrics(habits, entries, historyDate, 1).done}</Label>
+                  {filters(historyDate)}
+                </View>
+                {filterTasks(habits, entries, historyDate, filter, query).map(h => habitCard(h, historyDate))}
+                {!filterTasks(habits, entries, historyDate, filter, query).length && <Label style={s.subtitle}>{t(habits.some(h => due(h, historyDate)) ? "لا توجد مهام مطابقة" : "لا توجد مهام مجدولة لهذا اليوم")}</Label>}
                 <Label style={s.small}>
-                  الانتظام = الإنجازات ÷ المهام المجدولة. الدقائق هي مدة المهام
-                  المنجزة، وليست قياسًا لوقت استخدام الهاتف.
-                </Label>
+                  {" "}{t("الانتظام = الإنجازات ÷ المهام المجدولة. الدقائق هي مدة المهام المنجزة، وليست قياسًا لوقت استخدام الهاتف.")}{" "}</Label>
               </>
             )}
             {tab === "settings" && (
               <>
+                <LanguageSwitch />
                 <View style={s.card}>
-                  <Label style={s.heading}>حسابي</Label>
+                  <Label style={s.heading}>{t("حسابي")}</Label>
                   <Label style={s.small}>{user.email}</Label>
                   <Label style={[s.small, { marginTop: 15 }]}>
-                    المظهر: ليلي 🌙 · اليوم حسب توقيت جهازك
-                  </Label>
+                    {" "}{t("المظهر: ليلي 🌙 · اليوم حسب توقيت جهازك")}{" "}</Label>
                 </View>
                 <View style={s.card}>
                   <View style={s.row}>
@@ -718,23 +806,19 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
                         })
                       }
                     />
-                    <Label style={s.heading}>تحليلات الاستخدام</Label>
+                    <Label style={s.heading}>{t("تحليلات الاستخدام")}</Label>
                   </View>
                   <Label style={s.small}>
-                    اختياري: إرسال أحداث عامة مثل إكمال مهمة لتحسين التطبيق. لا
-                    نرسل أسماء المهام أو البريد في الأحداث.
-                  </Label>
+                    {" "}{t("اختياري: إرسال أحداث عامة مثل إكمال مهمة لتحسين التطبيق. لا نرسل أسماء المهام أو البريد في الأحداث.")}{" "}</Label>
                 </View>
                 <View style={s.card}>
-                  <Label style={s.heading}>على مهلك، لكن استمر 🌿</Label>
+                  <Label style={s.heading}>{t("على مهلك، لكن استمر 🌿")}</Label>
                   <Label style={s.small}>
-                    ابدأ بعادتين صغيرتين. تعديل أيام المهمة ومدتها يبدأ من بكرة
-                    لحماية سجلّك. المؤقّت لا يسجّل الإنجاز تلقائيًا.
-                  </Label>
+                    {" "}{t("ابدأ بعادتين صغيرتين. تعديل أيام المهمة ومدتها يبدأ من بكرة لحماية سجلّك. المؤقّت لا يسجّل الإنجاز تلقائيًا.")}{" "}</Label>
                 </View>
                 <Button
                   secondary
-                  title="تسجيل الخروج"
+                  title={t("تسجيل الخروج")}
                   disabled={busy}
                   onPress={() =>
                     void run(async () => {
@@ -751,16 +835,17 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
       {timer && (
         <View style={s.timer}>
           <View style={s.row}>
-            <Pressable onPress={() => setTimer(null)}>
+            <Pressable accessibilityRole="button" accessibilityLabel={t("إلغاء المؤقت")} onPress={() => setTimer(null)}>
               <Ionicons name="close" size={24} color={C.muted} />
             </Pressable>
             <Label>
               {habits.find((h) => h.id === timer.habitId)?.name ||
-                "جلسة التركيز"}{" "}
+                t("جلسة التركيز")}{" "}
               · {Math.floor(remaining / 60)}:
               {String(remaining % 60).padStart(2, "0")}
             </Label>
             <Pressable
+              accessibilityRole="button" accessibilityLabel={t("إيقاف أو استئناف المؤقت")}
               onPress={() =>
                 setTimer({
                   ...timer,
@@ -779,7 +864,7 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
           {remaining === 0 && (
             <Button
               disabled={busy}
-              title="الجلسة خلصت ✨ سجّل الإنجاز"
+              title={t("الجلسة خلصت ✨ سجّل الإنجاز")}
               onPress={() => {
                 const h = habits.find((x) => x.id === timer.habitId);
                 if (h) mark(h, timer.date);
@@ -790,10 +875,10 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
       )}
       <View style={s.nav}>
         {[
-          ["settings", "options-outline", "حسابي"],
-          ["stats", "stats-chart-outline", "إحصائياتي"],
-          ["habits", "grid-outline", "عاداتي"],
-          ["today", "sunny-outline", "يومي"],
+          ["settings", "options-outline", t("حسابي")],
+          ["stats", "stats-chart-outline", t("إحصائياتي")],
+          ["habits", "grid-outline", t("عاداتي")],
+          ["today", "sunny-outline", t("يومي")],
         ].map(([key, icon, title]) => (
           <Pressable
             key={key}
@@ -831,30 +916,36 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
             <ScrollView contentContainerStyle={s.content}>
               <View style={s.row}>
                 <Pressable onPress={() => setEditor(undefined)}>
-                  <Label style={s.link}>إغلاق</Label>
+                  <Label style={s.link}>{t("إغلاق")}</Label>
                 </Pressable>
                 <Label style={s.heading}>
-                  {editor ? "تعديل العادة" : "خطوة جديدة 🌱"}
+                  {editor ? t("تعديل العادة") : t("خطوة جديدة 🌱")}
                 </Label>
               </View>
               <Label style={s.subtitle}>
-                اختار حاجة بسيطة تقدر تلتزم بيها.
-              </Label>
-              <Label>اسم المهمة</Label>
+                {" "}{t("اختار حاجة بسيطة تقدر تلتزم بيها.")}{" "}</Label>
+              <Label>{t("اسم المهمة")}</Label>
               <Field
                 value={name}
                 onChangeText={setName}
                 maxLength={60}
-                placeholder="مثلًا: قراءة ١٠ صفحات"
+                placeholder={t("مثلًا: قراءة ١٠ صفحات")}
               />
-              <Label>المدة بالدقائق</Label>
+              <Label>{t("المدة بالدقائق")}</Label>
               <Field
                 value={minutes}
                 onChangeText={setMinutes}
                 keyboardType="number-pad"
                 placeholder="20"
               />
-              <Label>أيام التكرار</Label>
+              <Label>{t("أيام التكرار")}</Label>
+              <View style={s.wrap}>
+                {([
+                  ["كل يوم", [0, 1, 2, 3, 4, 5, 6]],
+                  ["أيام العمل", language === "ar" ? [0, 1, 2, 3, 4] : [1, 2, 3, 4, 5]],
+                  ["نهاية الأسبوع", language === "ar" ? [5, 6] : [0, 6]],
+                ] as const).map(([title, values]) => <Pressable key={title} accessibilityRole="button" style={s.chip} onPress={() => setSelected([...values])}><Label>{t(title)}</Label></Pressable>)}
+              </View>
               <View style={s.wrap}>
                 {days.map((d, i) => (
                   <Pressable
@@ -882,7 +973,7 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
                   </Pressable>
                 ))}
               </View>
-              <Label>رمز العادة</Label>
+              <Label>{t("رمز العادة")}</Label>
               <View style={s.wrap}>
                 {emojis.map((e) => (
                   <Pressable
@@ -897,11 +988,11 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
                   </Pressable>
                 ))}
               </View>
-              <Label>لونك المفضّل</Label>
+              <Label>{t("لونك المفضّل")}</Label>
               <View style={s.wrap}>
                 {colors.map((c) => (
                   <Pressable
-                    accessibilityLabel={"لون " + c}
+                    accessibilityLabel={t("لون") + c}
                     key={c}
                     onPress={() => setColor(c)}
                     style={[
@@ -916,10 +1007,10 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
                 ))}
               </View>
               {!!editor && (
-                <Label style={s.small}>تغيير المدة والأيام يبدأ من بكرة.</Label>
+                <Label style={s.small}>{t("تغيير المدة والأيام يبدأ من بكرة.")}</Label>
               )}
               <Button
-                title={busy ? "جاري الحفظ…" : "احفظ الخطوة ←"}
+                title={busy ? t("جاري الحفظ…") : t("احفظ الخطوة ←")}
                 disabled={busy}
                 onPress={save}
               />
@@ -931,6 +1022,11 @@ function Home({ user }: { user: FirebaseAuthTypes.User }) {
   );
 }
 export default function App() {
+  return <LanguageProvider><AppContent /></LanguageProvider>;
+}
+function AppContent() {
+  const { language } = useLanguage();
+  const s = makeStyles(language === "ar");
   const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null),
     [loading, setLoading] = useState(true);
   useEffect(
@@ -956,9 +1052,9 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
-const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg },
-  text: { color: C.text, textAlign: "right", fontSize: 15, lineHeight: 24 },
+const createStyles = (rtl: boolean) => StyleSheet.create({
+  screen: { direction: "ltr", flex: 1, backgroundColor: C.bg },
+  text: { color: C.text, textAlign: rtl ? "right" : "left", writingDirection: rtl ? "rtl" : "ltr", fontSize: 15, lineHeight: 24 },
   content: {
     padding: 22,
     gap: 18,
@@ -985,7 +1081,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 14,
-    transform: [{ rotate: "-8deg" }],
+
   },
   heroTitle: { fontSize: 29, fontWeight: "800", lineHeight: 43 },
   subtitle: { color: C.muted, fontSize: 14, lineHeight: 24 },
@@ -1000,7 +1096,7 @@ const s = StyleSheet.create({
     borderColor: C.line,
   },
   row: {
-    flexDirection: "row",
+    flexDirection: rtl ? "row" : "row-reverse",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
@@ -1032,6 +1128,7 @@ const s = StyleSheet.create({
   },
   fill: { height: 7, backgroundColor: C.mint, borderRadius: 8 },
   button: {
+    flexShrink: 1,
     padding: 15,
     borderRadius: 16,
     backgroundColor: C.mint,
@@ -1045,7 +1142,7 @@ const s = StyleSheet.create({
     borderRadius: 15,
     padding: 16,
     color: C.text,
-    textAlign: "right",
+    textAlign: rtl ? "right" : "left", writingDirection: rtl ? "rtl" : "ltr",
     fontSize: 16,
     marginVertical: 5,
   },
@@ -1063,9 +1160,9 @@ const s = StyleSheet.create({
     backgroundColor: "#243E32",
   },
   link: { color: C.mint, fontSize: 13 },
-  statRow: { flexDirection: "row", gap: 8 },
+  statRow: { flexDirection: rtl ? "row" : "row-reverse", gap: 8 },
   chart: {
-    flexDirection: "row",
+    flexDirection: rtl ? "row-reverse" : "row",
     gap: 9,
     height: 185,
     alignItems: "flex-end",
@@ -1082,14 +1179,14 @@ const s = StyleSheet.create({
   },
   bar: { width: "100%", borderRadius: 8 },
   heatmap: {
-    flexDirection: "row",
+    flexDirection: rtl ? "row-reverse" : "row",
     flexWrap: "wrap",
     gap: 7,
     marginVertical: 15,
   },
   cell: { width: 25, height: 25, borderRadius: 7 },
   nav: {
-    flexDirection: "row",
+    flexDirection: rtl ? "row" : "row-reverse",
     borderTopWidth: 1,
     borderColor: C.line,
     paddingVertical: 12,
@@ -1103,7 +1200,7 @@ const s = StyleSheet.create({
     borderColor: "#528D70",
   },
   wrap: {
-    flexDirection: "row-reverse",
+    flexDirection: rtl ? "row-reverse" : "row",
     flexWrap: "wrap",
     gap: 9,
     marginVertical: 12,
@@ -1111,3 +1208,6 @@ const s = StyleSheet.create({
   chip: { backgroundColor: C.card, padding: 12, borderRadius: 12 },
   color: { width: 43, height: 43, borderRadius: 16 },
 });
+
+const localizedStyles = { ar: createStyles(true), en: createStyles(false) };
+const makeStyles = (rtl: boolean) => localizedStyles[rtl ? "ar" : "en"];

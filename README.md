@@ -1,6 +1,28 @@
 # خُطوة · Daily Bloom
 
-تطبيق React Native + Expo + TypeScript للعادات اليومية، بواجهة عربية داكنة وألوان mint/lavender، يعمل على Android وiOS.
+تطبيق React Native + Expo (SDK 54) + TypeScript للعادات اليومية، بواجهة عربية داكنة وألوان mint/lavender، يعمل على Android وiOS.
+
+> **اقرأ الخطوات بالترتيب.** كل خطوة معتمدة على اللي قبلها، وكل مشكلة واجهتنا أول مرة مكتوب حلها في قسم [المشاكل المعروفة وحلولها](#المشاكل-المعروفة-وحلولها).
+
+---
+
+## المحتويات
+
+1. [الموجود في المشروع](#الموجود-في-المشروع)
+2. [ملخص الإعداد الحالي](#ملخص-الإعداد-الحالي)
+3. [الخطوة 1: المتطلبات والتثبيت](#الخطوة-1-المتطلبات-والتثبيت)
+4. [الخطوة 2: إعداد Firebase](#الخطوة-2-إعداد-firebase)
+5. [الخطوة 3: التشغيل على موبايل Android](#الخطوة-3-التشغيل-على-موبايل-android)
+6. [الخطوة 4: ربط المشروع بـ EAS](#الخطوة-4-ربط-المشروع-بـ-eas)
+7. [الخطوة 5: رفع ملفات Firebase لـ EAS](#الخطوة-5-رفع-ملفات-firebase-لـ-eas)
+8. [الخطوة 6: أول build من جهازك (التوقيع)](#الخطوة-6-أول-build-من-جهازك-التوقيع)
+9. [الخطوة 7: GitHub Actions](#الخطوة-7-github-actions)
+10. [المشاكل المعروفة وحلولها](#المشاكل-المعروفة-وحلولها)
+11. [قواعد لازم تفضل ماشي عليها](#قواعد-لازم-تفضل-ماشي-عليها)
+12. [طريقة حساب الإحصائيات](#طريقة-حساب-الإحصائيات)
+13. [الاختبار والتحقق](#الاختبار-والتحقق)
+
+---
 
 ## الموجود في المشروع
 
@@ -10,25 +32,56 @@
 - قائمة اليوم، إنجاز مرة واحدة لكل مهمة/يوم، إلغاء إنجاز، وعدد مرات التنفيذ.
 - مؤقّت start/pause/resume يستعيد الموعد النهائي عند إعادة فتح التطبيق. لا يعمل كخدمة في الخلفية ولا يصدر تنبيهًا؛ يلزم تأكيد الإنجاز يدويًا.
 - انتظام آخر 30 يوم، streak لكل مهمة، أعمدة الأسبوع، وتقويم إنجاز 30 يوم مع عرض اليوم وتعديل إنجازه.
-- Firestore يعزل بيانات كل مستخدم ويستخدم التخزين المحلي native. تسجيل الدخول أول مرة يحتاج إنترنت، وعمليات الكتابة قد تظل معلقة لحين عودة الاتصال.
-- GitHub Actions: فحص كل PR، وبناء Android وiOS عند كل push إلى main.
+- Firestore يعزل بيانات كل مستخدم ويستخدم التخزين المحلي native.
+- GitHub Actions: فحص كل PR، وبناء Android وiOS على EAS مع كل push إلى `main`.
 
-## 1. متطلبات التشغيل
+---
 
-Node.js 22 وnpm؛ حساب Firebase وحساب Expo. Android Studio لتشغيل Android محليًا، وmacOS + Xcode لتشغيل iOS محليًا. للبناء السحابي لا تحتاج Mac. هذا تطبيق native ولا يعمل داخل Expo Go بسبب React Native Firebase.
+## ملخص الإعداد الحالي
+
+| الحاجة | القيمة / المكان |
+|---|---|
+| حساب Expo | `andrewmelad` |
+| مشروع EAS | `@andrewmelad/daily-bloom` |
+| EAS Project ID | `7f26d4cb-21f6-49f7-bd6d-b106b0f4571b` (مكتوب مباشرة في `app.config.js`) |
+| Android package / iOS bundle ID | `com.andrew.dailybloom` |
+| مستودع GitHub | `AndrewMelad108/Daily-Bloom` |
+| سيكرتس GitHub | Settings ← Environments ← **Production** ← `EXPO_TOKEN` |
+| ملفات Firebase على EAS | `GOOGLE_SERVICES_JSON` و`GOOGLE_SERVICES_PLIST` (نوع File) في بيئات preview وproduction |
+
+---
+
+## الخطوة 1: المتطلبات والتثبيت
+
+محتاج:
+- Node.js 22 وnpm.
+- حساب Firebase وحساب Expo.
+- Android Studio (أو موبايل Android بـ USB debugging) للتشغيل المحلي.
+- iOS محليًا محتاج macOS + Xcode. على Linux استخدم EAS بس.
+
+التطبيق **native** ومش بيشتغل في Expo Go بسبب React Native Firebase.
 
 ```bash
 npm ci
+npx expo install --check     # لازم يقول: Dependencies are up to date
 ```
 
-## 2. إعداد Firebase
+> ⚠️ **ثبّت أي مكتبة Expo بـ `npx expo install` مش `npm install`**، عشان ياخد النسخة المتوافقة مع SDK 54. شوف [مشكلة expo-font](#2-الأبلكيشن-بيقفل-أول-ما-يفتح-nosuchmethoderror-getdirectconverter).
 
-1. أنشئ مشروعًا في https://console.firebase.google.com وفعل Google Analytics للمشروع.
-2. Authentication → Sign-in method → Email/Password → Enable.
-3. Firestore Database → Create database → Production mode واختر المنطقة المناسبة.
-4. في Project settings أضف Android app وiOS app. اختر identifiers خاصة بك، مثل `com.andrew.dailybloom`، وضع نفس القيمة في `android.package` و`ios.bundleIdentifier` داخل `app.config.js`.
-5. نزّل `google-services.json` و`GoogleService-Info.plist` وضعهما بجوار `package.json`. لا تستخدم Firebase Admin service-account داخل التطبيق.
-6. من Firestore → Rules انسخ محتوى `firestore.rules` ثم Publish. أو استخدم Firebase CLI:
+---
+
+## الخطوة 2: إعداد Firebase
+
+1. أنشئ مشروعًا في https://console.firebase.google.com وفعّل Google Analytics.
+2. Authentication ← Sign-in method ← Email/Password ← Enable.
+3. Firestore Database ← Create database ← Production mode.
+4. Project settings ← **Add app**:
+   - **Android** بـ package: `com.andrew.dailybloom`
+   - **iOS** بـ bundle ID: `com.andrew.dailybloom`
+5. نزّل `google-services.json` و`GoogleService-Info.plist` وحطهم جنب `package.json`.
+   - الملفين دول في `.gitignore` ومش بيترفعوا على GitHub. هنرفعهم لـ EAS في [الخطوة 5](#الخطوة-5-رفع-ملفات-firebase-لـ-eas).
+   - متستخدمش Firebase Admin service-account جوه التطبيق.
+6. انشر قواعد Firestore:
 
 ```bash
 npx firebase-tools login
@@ -44,74 +97,246 @@ users/{uid}/habits/{habitId}         Habit + schedule revisions
 users/{uid}/entries/{habitId_DATE}   one completion per calendar day
 ```
 
-القواعد تمنع مستخدمًا من الوصول لبيانات مستخدم آخر. التطبيق شخصي ولا توجد leaderboard أو صلاحيات مشرف. تحقق الجدول المتداخل يتم في العميل؛ لا تستخدم هذه البيانات لمكافآت مالية أو منافسة موثوقة دون تحقق backend إضافي.
+القواعد بتمنع أي مستخدم يوصل لبيانات مستخدم تاني. التحقق من الجدول بيتم في العميل، فمتستخدمش البيانات دي لمكافآت مالية أو منافسة من غير تحقق backend.
 
-## 3. التشغيل على جهاز
+---
+
+## الخطوة 3: التشغيل على موبايل Android
+
+وصّل الموبايل بـ USB (فعّل **USB debugging**) أو افتح Android Emulator، وبعدين:
 
 ```bash
-npx expo run:android
-# على macOS فقط:
-npx expo run:ios
-# بعد تثبيت development build:
+npx expo prebuild --platform android --clean
+npm run android
+```
+
+بعد ما الـ development build يتسطب، تقدر تشغّل الـ JavaScript بس:
+
+```bash
 npm start
 ```
 
-أعد بناء development client بعد إضافة/تغيير native modules أو ملفات Firebase. لا يكفي تحديث JavaScript.
+> **امتى لازم تعيد `prebuild --clean` و`npm run android`؟** بعد أي تغيير في native modules، أو `app.config.js`، أو ملفات Firebase. زرار **Reload** في الأبلكيشن مش كفاية في الحالات دي.
 
-## 4. إعداد EAS مرة واحدة
+---
+
+## الخطوة 4: ربط المشروع بـ EAS
+
+**اتعملت خلاص.** المشروع مربوط بـ `@andrewmelad/daily-bloom`، والـ ID مكتوب في `app.config.js`:
+
+```js
+extra: {
+  eas: {
+    projectId: "7f26d4cb-21f6-49f7-bd6d-b106b0f4571b",
+  },
+},
+```
+
+لو احتجت تعيدها من الأول على حساب جديد:
 
 ```bash
 npx eas-cli login
+npx eas-cli whoami           # اتأكد إنه الحساب الصح
 npx eas-cli init
 ```
 
-ضع UUID المشروع الناتج مكان `REPLACE_WITH_EAS_PROJECT_ID` في `app.config.js`، واحتفظ بهذه القيمة في الملف المرفوع إلى GitHub حتى تكون متاحة أيضًا على خادم البناء. لو أضاف `eas init` حقل owner، احتفظ به.
-
-في Expo dashboard → Project → Environment variables أنشئ للبيئات development / preview / production:
-
-| الاسم | النوع | القيمة |
-|---|---|---|
-| GOOGLE_SERVICES_JSON | File / Secret | ملف google-services.json |
-| GOOGLE_SERVICES_PLIST | File / Secret | ملف GoogleService-Info.plist |
-
-`app.config.js` يستخدم المسار الذي توفره EAS لهذه الملفات، ويستخدم الملفات المحلية أثناء التطوير. لا تضع service-account JSON بدل ملف إعداد Android.
-
-نفّذ أول build تفاعليًا لضبط التوقيع قبل CI:
+`app.config.js` ملف JavaScript، فـ `eas init` **مش هيقدر يكتب فيه لوحده**. هيطبعلك الـ ID، وإنت تحطه بإيدك مكان القيمة اللي فوق. وبعدها اتأكد:
 
 ```bash
+npx eas-cli project:info     # لازم يطبع fullName و ID
+```
+
+> الـ Project ID مش سر، لأنه بيتحط جوه الأبلكيشن نفسه. عشان كده مكتوب في الكود ومش محطوط كسيكرت في GitHub.
+
+---
+
+## الخطوة 5: رفع ملفات Firebase لـ EAS
+
+الـ build على GitHub بياخد الكود من الريبو، والريبو مفيهوش ملفات Firebase. فلازم ترفعهم لـ EAS كمتغيرات من نوع **File**:
+
+```bash
+# Android
+npx eas-cli env:create --environment preview    --name GOOGLE_SERVICES_JSON  --type file --value ./google-services.json     --visibility sensitive
+npx eas-cli env:create --environment production --name GOOGLE_SERVICES_JSON  --type file --value ./google-services.json     --visibility sensitive
+
+# iOS
+npx eas-cli env:create --environment preview    --name GOOGLE_SERVICES_PLIST --type file --value ./GoogleService-Info.plist --visibility sensitive
+npx eas-cli env:create --environment production --name GOOGLE_SERVICES_PLIST --type file --value ./GoogleService-Info.plist --visibility sensitive
+```
+
+> ⚠️ **لازم `--visibility sensitive` مش `secret`.** الـ GitHub runner بيقرا `app.config.js` قبل ما يبعت الـ build لـ EAS، ومتغيرات `secret` مش بتوصله. ولو الملف موصلش، plugin بتاع `@react-native-firebase` بيفشل على طول.
+
+اتأكد إنهم اترفعوا:
+
+```bash
+npx eas-cli env:list preview
+npx eas-cli env:list production
+```
+
+`app.config.js` بيستخدم المسار اللي EAS بيوفّره (`process.env.GOOGLE_SERVICES_JSON`)، ولو المتغير مش موجود بيرجع للملف المحلي. لو غيّرت ملف Firebase، ارفعه تاني بنفس الأمر وضيف `--force`.
+
+---
+
+## الخطوة 6: أول build من جهازك (التوقيع)
+
+الـ workflow على GitHub شغّال بـ `--non-interactive`، فمش هيقدر يسألك أسئلة. أول مرة لازم تعمل الـ signing credentials من جهازك:
+
+```bash
+# Android: قول Yes لما يسألك يعمل keystore جديد
 npx eas-cli build --platform android --profile preview
-npx eas-cli device:create
+
+# iOS: محتاج Apple Developer account (99$ في السنة)
+npx eas-cli device:create                      # سجّل الآيفون بتاعك
 npx eas-cli build --platform ios --profile preview
 ```
 
-EAS يدير Android keystore وApple signing credentials. iOS على جهاز حقيقي يحتاج عضوية Apple Developer وتسجيل أجهزة الاختبار لتوزيع Ad Hoc. زيادة الأجهزة تحتاج build جديد أو إعادة توقيع. ملف IPA ليس ملفًا يمكن لأي iPhone تثبيته مباشرة.
+- EAS بيحفظ الـ Android keystore وشهادات Apple، وبعد كده GitHub بيستخدمهم تلقائي.
+- `preview` = توزيع داخلي: APK لـ Android، وIPA لـ iOS بيتسطب **على الأجهزة المسجلة بس**. لو ضفت جهاز جديد لازم build جديد.
+- قبل أول build بـ `production` اعمل نفس الخطوة بـ `--profile production`.
 
-## 5. GitHub Actions مع كل تحديث
+---
 
-الملف جاهز: `.github/workflows/build.yml`.
+## الخطوة 7: GitHub Actions
 
-1. ارفع محتويات هذا المجلد إلى root مستودع GitHub، بما فيها `package-lock.json` ومجلد `.github` المخفي.
-2. أنشئ Expo access token من https://expo.dev/accounts ثم Account settings → Access tokens.
-3. GitHub → Settings → Secrets and variables → Actions → Secrets: أضف `EXPO_TOKEN`.
-4. في Variables أضف `EXPO_PUBLIC_EAS_PROJECT_ID` بقيمة UUID المشروع، حتى لو كتبته في config.
-5. تأكد من رفع ملفات Firebase كـ EAS File variables ومن نجاح أول build تفاعلي للمنصتين.
-6. كل push إلى `main` يشغّل TypeScript والاختبارات ثم EAS build للمنصتين بالتوازي. PR يشغّل الفحوصات فقط، ولا يكشف أسرار البناء.
-7. النتيجة: Android APK للتثبيت وiOS Ad Hoc IPA للأجهزة المسجلة. الروابط تظهر في EAS dashboard وداخل `build-result.json` المرفوع كـ GitHub artifact. الـartifact يحتوي بيانات ورابط البناء؛ ملف APK/IPA نفسه محفوظ في EAS.
-8. لبناء إصدار المتاجر: Actions → Validate and build Android + iOS → Run workflow → profile `production`. اضبط توقيع production أولًا بـ `npx eas-cli build --platform all --profile production`.
+الملف: `.github/workflows/build.yml`
 
-إصدار production ينتج AAB لـ Google Play وIPA لـ App Store/TestFlight. البناء لا ينشر تلقائيًا للمتاجر. الإرسال يحتاج إعداد حسابات المتاجر ثم `eas submit`. البناء السحابي وGitHub Actions يخضعان لحصص حساباتك؛ راجع لوحة حسابك قبل تفعيل builds كثيرة.
+### الإعداد (مرة واحدة)
+
+1. **اعمل توكن Expo** من https://expo.dev/settings/access-tokens ← **Create token**.
+   - ⚠️ ده توكن **Expo**. توكن GitHub (بيبدأ بـ `ghp_` أو `github_pat_`) **مش هيشتغل**.
+2. **جرّب التوكن على جهازك قبل ما تحطه في GitHub:**
+   ```bash
+   EXPO_TOKEN=التوكن_هنا npx eas-cli whoami
+   ```
+   لازم يطبع `andrewmelad`. **متلصقش التوكن في أي شات أو ملف.**
+3. **حطه في GitHub:** Settings ← Environments ← **Production** ← Add environment secret:
+   - Name: `EXPO_TOKEN`
+   - Value: التوكن من غير مسافات أو سطور زيادة
+
+   الـ build job فيه `environment: Production`، فهو بيقرا السيكرتس من هنا. لو نقلت السيكرت لمكان تاني (repository secret مثلًا) لازم تعدّل السطر ده.
+
+### بيشتغل إمتى
+
+| الحدث | اللي بيحصل |
+|---|---|
+| Pull request على `main` | typecheck + اختبارات بس (من غير build ومن غير سيكرتس) |
+| Push على `main` | typecheck + اختبارات، وبعدها EAS build لـ Android وiOS بالتوازي (profile `preview`) |
+| Actions ← Run workflow | تقدر تختار `preview` أو `production` |
+
+### خطوات الـ build job
+
+1. **Check EAS credentials:** بيوقف على طول برسالة واضحة لو `EXPO_TOKEN` فاضي.
+2. **checkout، وsetup-node، و`npm ci`**
+3. **expo-github-action:** بيسطب `eas` ويعمل `eas whoami`. لو التوكن غلط بيفشل هنا.
+4. **Build signed binaries on EAS:** بيعمل `eas build` وبيستنى لحد ما يخلص.
+5. **Save EAS build result:** بيرفع `build-result.json` كـ artifact، وجواه رابط التحميل.
+
+ملفات APK/IPA نفسها محفوظة على EAS: https://expo.dev/accounts/andrewmelad/projects/daily-bloom/builds
+
+### Re-run ولا push جديد؟
+
+- **Re-run jobs:** بيستخدم **نفس نسخة** الـ workflow القديمة، بس بيقرا السيكرتس من جديد. استخدمه لو غيّرت سيكرت بس.
+- **Push جديد:** لازم لو غيّرت أي ملف، زي `build.yml` أو `app.config.js`.
+
+### إصدار المتاجر
+
+Actions ← Validate and build Android + iOS ← Run workflow ← profile `production`. الناتج AAB لـ Google Play وIPA لـ App Store/TestFlight. الـ build **مش بينشر لوحده**، النشر محتاج `eas submit`.
+
+---
+
+## المشاكل المعروفة وحلولها
+
+المشاكل دي كلها حصلت فعلًا أول مرة، وبالترتيب ده.
+
+### 1. `userInterfaceStyle: Install expo-system-ui`
+
+**العَرَض:** warning وقت `expo prebuild`، والـ dark mode مش بيتطبق على Android.
+**السبب:** `userInterfaceStyle: "dark"` محتاج مكتبة `expo-system-ui`.
+**الحل (اتعمل):**
+```bash
+npx expo install expo-system-ui
+```
+
+### 2. الأبلكيشن بيقفل أول ما يفتح: `NoSuchMethodError: getDirectConverter`
+
+**العَرَض:** شاشة "There was a problem loading the project"، والخطأ جاي من `expo.modules.font.FontLoaderModule`.
+**السبب:** `@expo/vector-icons` بيطلب `expo-font` كـ peer dependency بشرط `>=14.0.4` ومن غير حد أقصى. فـ npm سطّب `expo-font@57` (بتاع SDK 57) جوه vector-icons، والنسخة دي بتنادي method مش موجودة في `expo-modules-core` بتاع SDK 54.
+**الحل (اتعمل):**
+```bash
+npx expo install expo-font     # بيثبت 14.0.x المتوافقة مع SDK 54
+npm ls expo-font               # لازم تبقى نسخة واحدة "deduped"
+```
+وضفنا `"expo-font"` في `plugins` جوه `app.config.js`. وبعد كده **لازم** `prebuild --clean` و`npm run android`، لأن الـ Reload مش كفاية.
+
+**عشان متتكررش:** بعد أي `npm install` شغّل `npm ls expo-font expo-modules-core` واتأكد إن مفيش نسخ أعلى من SDK 54.
+
+### 3. `An Expo user account is required to proceed`
+
+**العَرَض:** خطوة "Build signed binaries on EAS" بتفشل في ثانيتين.
+**السبب:** السيكرت `EXPO_TOKEN` كان محطوط في Environment اسمه **Production**، والـ job مكانش معلن إنه بيستخدم الـ environment ده، فالسيكرت كان بيوصل فاضي. وexpo-github-action بيعدّي من غير login لو التوكن فاضي، ومبيطلعش أي خطأ.
+**الحل (اتعمل):** ضفنا `environment: Production` للـ build job، وخطوة **Check EAS credentials** اللي بتوقف برسالة واضحة لو التوكن فاضي.
+
+### 4. `The bearer token is invalid`
+
+**العَرَض:** خطوة `expo-github-action` بتفشل عند `eas whoami`.
+**السبب:** اللي اتحط في `EXPO_TOKEN` كان **GitHub Personal Access Token** (بيبدأ بـ `ghp_`) مش توكن Expo.
+**الحل:** اعمل توكن من **expo.dev** (مش github.com)، وجرّبه بـ `eas-cli whoami` قبل ما تحطه. شوف [الخطوة 7](#الخطوة-7-github-actions).
+**مهم:** لو لصقت أي توكن في مكان عام أو شات، اعمله **revoke** على طول.
+
+### 5. `Experience with id '***' does not exist`
+
+**العَرَض:** التوكن شغّال (`andrewmelad (authenticated using EXPO_TOKEN)`)، بس `eas build` بيفشل.
+**السبب:** الـ Project ID القديم في `.env` وفي GitHub مكانش موجود على حساب `andrewmelad`، يعني كان اتعمل على حساب تاني أو اتمسح. وكمان `eas-cli` **مبيقراش `.env`** لوحده، فمحليًا كان بيشوف `REPLACE_WITH_EAS_PROJECT_ID`.
+**الحل (اتعمل):** `eas init` عمل مشروع جديد على الحساب الصح، وكتبنا الـ ID مباشرة في `app.config.js`، وشلنا `EXPO_PUBLIC_EAS_PROJECT_ID` من الـ workflow. تقدر تمسح السيكرت القديم `EXPO_PUBLIC_EAS_PROJECT_ID` من Production في GitHub.
+
+### 6. `ENOENT: no such file or directory ... GoogleService-Info.plist`
+
+**العَرَض:** build الـ iOS بيفشل وهو بيقرا الـ config، ومعاه رسالة `No environment variables ... found for the "preview" environment`.
+**السبب:** ملفات Firebase في `.gitignore`، فمش موجودة على GitHub، ومكانتش اترفعت لـ EAS.
+**الحل:** [الخطوة 5](#الخطوة-5-رفع-ملفات-firebase-لـ-eas). نفس المشكلة هتحصل لـ Android مع `google-services.json` لو ملفه ماترفعش.
+
+### 7. `app.config.js is missing ios.infoPlist.ITSAppUsesNonExemptEncryption`
+
+**العَرَض:** warning في build الـ iOS.
+**الحل (اتعمل):** ضفنا `infoPlist: { ITSAppUsesNonExemptEncryption: false }` في `ios` جوه `app.config.js`.
+
+### رسائل تقدر تتجاهلها
+
+- `! No git repo found` / `Continue with uncommitted changes?`: الرسالة دي كانت بتظهر قبل ما المشروع يبقى git repo.
+- `Warning: Failed to save: Our services aren't available right now` في expo-github-action: ده cache بتاع GitHub وملوش علاقة بالـ build.
+- `Error: The process '.../eas' failed with exit code 1`: سطر عام بيظهر مع أي فشل. **السبب الحقيقي دايمًا في السطور اللي فوقه.**
+- `npm audit` vulnerabilities: تحذيرات في dev dependencies. **متشغّلش `npm audit fix --force`** لأنه ممكن يكسر توافق SDK 54.
+
+---
+
+## قواعد لازم تفضل ماشي عليها
+
+1. **`npx expo install` لأي مكتبة**، مش `npm install`.
+2. **بعد أي تغيير native**، زي مكتبة جديدة أو `app.config.js` أو ملفات Firebase: اعمل `npx expo prebuild --clean` وبعدها `npm run android`.
+3. **توكن Expo ييجي من expo.dev بس.** جرّبه بـ `eas-cli whoami` قبل ما تحطه في GitHub، ومتلصقوش في أي مكان.
+4. **ملفات Firebase عمرها ما تترفع على git.** لو اتغيرت، ارفعها لـ EAS تاني بـ `env:create ... --force`.
+5. **لما الـ workflow يفشل** افتح الـ step الحمرا واقرا السطور اللي **فوق** `exit code 1`.
+6. **غيّرت سيكرت؟** Re-run كفاية. **غيّرت ملف؟** لازم push جديد.
+7. **قبل أي push** شغّل:
+   ```bash
+   npm run typecheck && npm test && npx expo install --check
+   ```
+
+---
 
 ## طريقة حساب الإحصائيات
 
-- اليوم حسب التاريخ المحلي للجهاز. حافظ على timezone ثابت إذا كنت تقارن فترات متتالية أثناء السفر.
-- نسبة الانتظام = عدد المهام المجدولة التي تم تنفيذها ÷ عدد المهام المجدولة في آخر 30 يوم × 100.
-- الأيام السابقة لإنشاء المهمة وأيام الراحة لا تدخل في المقام. أيام المستقبل لا تدخل.
-- تعديل المدة/أيام التكرار يبدأ غدًا؛ الاسم واللون والرمز يتغيرون فورًا. تاريخ المدة والجدول محفوظ في schedules.
-- الأرشفة تبدأ غدًا ولا تحذف الإنجازات السابقة.
-- streak يتجاهل أيام الراحة، ولا ينكسر بسبب عدم إكمال مهمة اليوم حتى يمر اليوم.
-- أرقام الدقائق هي المدة المخططة للمهام التي علّمتها مكتملة، وليست وقت التركيز المقاس.
-- المؤقّت العابر لمنتصف الليل يسجّل إنجازه بتاريخ بدايته.
-- يمكنك تصحيح إنجازات آخر 30 يوم يدويًا من الإحصائيات.
+- اليوم بيتحسب حسب التاريخ المحلي للجهاز. خلّي الـ timezone ثابت لو بتقارن فترات ورا بعض وإنت مسافر.
+- نسبة الانتظام = عدد المهام المجدولة اللي اتعملت ÷ عدد المهام المجدولة في آخر 30 يوم × 100.
+- الأيام اللي قبل إنشاء المهمة وأيام الراحة مش بتدخل في المقام، ولا أيام المستقبل.
+- تعديل المدة أو أيام التكرار بيبدأ من بكرة، أما الاسم واللون والرمز فبيتغيروا على طول. تاريخ المدة والجدول محفوظ في schedules.
+- الأرشفة بتبدأ من بكرة ومش بتمسح الإنجازات اللي فاتت.
+- الـ streak بيتجاهل أيام الراحة، ومش بينكسر عشان مهمة النهارده لسه ماخلصتش لحد ما اليوم يعدّي.
+- أرقام الدقائق هي المدة المخططة للمهام اللي علّمت عليها إنها خلصت، مش وقت التركيز الفعلي.
+- المؤقّت اللي بيعدّي نص الليل بيسجّل الإنجاز بتاريخ اليوم اللي بدأ فيه.
+- تقدر تصحّح إنجازات آخر 30 يوم بإيدك من الإحصائيات.
+
+---
 
 ## الاختبار والتحقق
 
@@ -121,19 +346,20 @@ npm test
 npx expo install --check
 ```
 
-اختبارات منطق الإحصائيات تشمل تغيير الجدول والأرشفة وأيام الراحة وعدم تكرار الإنجاز وحدود الشهر. مطلوب اختبار على Android وiOS متصلين بمشروع Firebase الخاص بك: تسجيل/دخول، إعادة تشغيل، استعادة كلمة المرور، إنشاء/تعديل، مؤقّت في الخلفية، إلغاء إنجاز، قطع وعودة الشبكة، ورفض وصول حساب آخر إلى المسارات.
+اختبارات منطق الإحصائيات بتغطي تغيير الجدول والأرشفة وأيام الراحة وعدم تكرار الإنجاز وحدود الشهر.
 
-لم يتم توفير credentials أو مشروع Firebase/Expo في الطلب، لذلك لا يتضمن ZIP ملفات Firebase الحقيقية أو binaries موقعة، ولم يُنفذ build native متصل بخدماتك.
+اختبار يدوي على Android وiOS متصلين بمشروع Firebase: تسجيل ودخول، وإعادة تشغيل، واستعادة كلمة المرور، وإنشاء وتعديل، ومؤقّت في الخلفية، وإلغاء إنجاز، وقطع الشبكة ورجوعها، ورفض وصول حساب تاني للمسارات.
+
+---
 
 ## إضافات لاحقة مفيدة
 
-الإشعارات المحلية وتحديد وقت لكل عادة، تصدير البيانات وحذف الحساب ذاتيًا، ومشاركة تحديات اختيارية. هذه ليست مفعلة في هذه النسخة. قبل نشر تطبيق عام أضف سياسة خصوصية ومسار حذف الحساب والبيانات وإفصاحات المتاجر الملائمة.
+الإشعارات المحلية وتحديد وقت لكل عادة، وتصدير البيانات وحذف الحساب ذاتيًا، ومشاركة تحديات اختيارية. قبل نشر التطبيق للناس ضيف سياسة خصوصية، وطريقة لحذف الحساب والبيانات، وإفصاحات المتاجر المطلوبة.
 
 ## المراجع
 
 - https://rnfirebase.io/
-- https://rnfirebase.io/analytics/usage
 - https://docs.expo.dev/guides/using-firebase/
 - https://docs.expo.dev/build/building-on-ci/
+- https://docs.expo.dev/eas/environment-variables/
 - https://docs.expo.dev/build/internal-distribution/
-# Daily-Bloom
