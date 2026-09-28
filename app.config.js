@@ -9,6 +9,7 @@ module.exports = {
     ios: {
       bundleIdentifier: "com.andrew.dailybloom",
       supportsTablet: true,
+      infoPlist: { ITSAppUsesNonExemptEncryption: false },
       googleServicesFile:
         process.env.GOOGLE_SERVICES_PLIST || "./GoogleService-Info.plist",
     },
