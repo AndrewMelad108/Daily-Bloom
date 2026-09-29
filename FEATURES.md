@@ -1,19 +1,30 @@
-# Daily Bloom updates
+# Tasks
 
-- Arabic and English are available on the sign-in screen and in Account. The device remembers the choice. Interface text, dates, weekday names, form labels and alerts change immediately, with text alignment and layout matching the language. User-written habit names stay as entered.
-- Each scheduled task has an explicit Done or Not done status. Unscheduled days are separate and never count as missed tasks. Marking a task done and undoing completion use the existing account's Firestore entries.
-- Today includes a seven-day overview. Tap a day to inspect its history. Insights also supports previous/next day navigation and returning to today. Future dates cannot be completed.
-- Search combines with All / Not done / Done filters. Daily summaries show completed and remaining tasks. Insights includes the last seven days' completions and the best current scheduled-day streak.
-- Habits includes editable Reading, Movement and Mindfulness starters. The editor includes repeat-day presets and accepts Arabic or English duration digits.
-- The existing root `logo.png` is used for the sign-in logo, app header, launcher icon and splash configuration. Android assets were regenerated with Expo prebuild. Rebuild the native app to see launcher/splash changes; future iOS prebuilds use the same configuration.
+The bottom navigation contains Today, Tasks, Insights and Account. The Habit feature is removed, including its data subscriptions, editor and records in task lists/statistics. Today restores the daily progress card and seven-day overview; Insights restores totals, streaks, charts, the calendar and editable day history. Both use the same task data as Tasks. Account keeps language, privacy preference and sign-out.
 
-## Device smoke check
+- Create, edit, search, filter by completion, complete and undo tasks.
+- Essential tasks repeat daily. Flexible tasks use selected days and offer deletion with confirmation. Rest-day tasks remain visible under All so they can still be edited or deleted.
+- Every task has a duration and focus timer. Existing tasks without a duration default to 20 minutes until edited.
+- Only task records are loaded. Stored Habit data is untouched in Firestore but is not shown, edited or counted by this app. Existing task timers are preserved; saved Habit timers are discarded.
+- Android shows a native countdown notification with the task name, synchronized with pause/resume. It disappears on cancellation, completion, sign-out or expiry. Allow notification permission when prompted. This feature is Android-only; expiry does not automatically complete tasks.
 
-1. Switch language before signing in, restart the app, and verify the choice persists.
-2. Sign in, add a starter habit, and set a duration such as `٢٠`.
-3. Mark today's task done, filter by Done, then undo it and check Not done.
-4. Select a previous scheduled day, change its status, and verify the calendar and statistics update. Check that rest days have no pending task.
-5. Switch language in Account while a timer is running; verify names, timer state and task data persist.
-6. Inspect both languages on a small screen and with larger text. Confirm the logo and launcher icon on a rebuilt device installation.
+- New task completions store their planned duration for statistics. Older completions without recorded minutes still count as completions but do not contribute guessed minutes.
 
-Automated checks cover model behavior, filters, schedule history, translated message coverage and duration parsing. Device/Firebase interaction still needs the smoke check above.
+## Setup
+
+```bash
+nvm use
+npm run android
+```
+
+Deploy the updated task permissions and optional duration validation separately:
+
+```bash
+npx firebase-tools deploy --only firestore:rules
+```
+
+## Verification
+
+Automated checks cover task identity, historical completion, default durations, essential-task classification, archive handling, rest-day filters, translations and notification timing.
+
+On a device, verify task create/edit/complete/undo/delete with Firestore, then start a one-minute timer, background the app, pause/resume and cancel. Check permission denial and expiry. Native notification behavior uses [Notifee's Android chronometer](https://notifee.app/react-native/docs/android/timers/).

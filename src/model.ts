@@ -92,3 +92,39 @@ export function parseMinutes(value: string) {
   return Number(value.replace(/[٠-٩]/g, digit => String(digit.charCodeAt(0) - 0x0660))
     .replace(/[۰-۹]/g, digit => String(digit.charCodeAt(0) - 0x06f0)));
 }
+
+export type GlobalTask = {
+  minutes?: number;
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
+  isEssential: boolean;
+  days: number[];
+  createdDate: string;
+  archivedDate: string | null;
+};
+
+export type GlobalTaskEntry = {
+  minutes?: number;
+  id: string;           // globalTaskId + '_' + date
+  globalTaskId: string;
+  date: string;
+};
+
+export function globalTaskDue(task: GlobalTask, dateKey: string): boolean {
+  if (task.archivedDate && dateKey >= task.archivedDate) return false;
+  if (task.isEssential) return true;
+  const dow = new Date(dateKey + "T12:00:00").getDay();
+  return task.days.includes(dow);
+}
+
+export function globalTaskStatus(
+  task: GlobalTask,
+  entries: GlobalTaskEntry[],
+  date: string,
+): "done" | "pending" {
+  return entries.some(e => e.globalTaskId === task.id && e.date === date)
+    ? "done"
+    : "pending";
+}

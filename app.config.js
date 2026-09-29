@@ -1,10 +1,14 @@
 module.exports = {
   expo: {
-    name: "خطوة • Daily Bloom",
+    name: "خطوات",
     slug: "daily-bloom",
     version: "1.0.0",
     icon: "./logo.png",
-    splash: { image: "./logo.png", resizeMode: "contain", backgroundColor: "#0B1017" },
+    splash: {
+      image: "./logo.png",
+      resizeMode: "contain",
+      backgroundColor: "#0B1017",
+    },
     orientation: "portrait",
     userInterfaceStyle: "dark",
     scheme: "dailybloom",
@@ -17,6 +21,7 @@ module.exports = {
     },
     android: {
       package: "com.andrew.dailybloom",
+      permissions: ["android.permission.POST_NOTIFICATIONS"],
       googleServicesFile:
         process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
     },
@@ -24,7 +29,15 @@ module.exports = {
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
       "expo-font",
-      ["expo-build-properties", { ios: { useFrameworks: "static" } }],
+      "./plugins/withTimerIcon",
+      ["expo-build-properties", {
+        ios: { useFrameworks: "static" },
+        android: {
+          extraMavenRepos: [require("node:url").pathToFileURL(
+            require("node:path").join(__dirname, "node_modules/@notifee/react-native/android/libs")
+          ).href],
+        },
+      }],
     ],
     extra: {
       eas: {
